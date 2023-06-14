@@ -1,0 +1,58 @@
+# vim:ft=systemd
+[Unit]
+Description=rootless networking example container
+Documentation=man:podman-generate-systemd(1)
+Wants=network-online.target
+Requires=podman.socket
+After=network-online.target podman.socket
+RequiresMountsFor=%t/containers
+
+[Service]
+User=test
+Environment=PODMAN_SYSTEMD_UNIT=%n
+# credential access isn't available in ExecStartPre before systemd 252 (https://github.com/systemd/systemd/commit/e7f64b896201da4a11da158c35865604cf02062f)
+#LoadCredentialEncrypted=container-mac-secret
+Restart=on-failure
+TimeoutStopSec=60
+RuntimeDirectory=container/%n
+ExecStartPre=/bin/rm \
+	-f ${RUNTIME_DIRECTORY}/ctr-id
+ExecStartPre=/bin/mkdir -p ${RUNTIME_DIRECTORY}/rootless-example
+ExecStartPre=/usr/bin/podman create \
+	--cidfile=${RUNTIME_DIRECTORY}/ctr-id \
+	--cgroups=no-conmon \
+	--replace \
+	--pull=newer \
+	--network=none \
+	--name rootless-example \
+	"registry.fedoraproject.org/fedora:latest" \
+	python3 -mhttp.server 8080
+ExecStartPre=/usr/bin/podman \
+	container init \
+	rootless-example
+ExecStartPre=+/usr/local/sbin/rootful_network \
+	${RUNTIME_DIRECTORY} \
+	setup \
+	%n \
+	"/etc/rootful_network_secret" \
+	${USER} \
+	"rootful0" \
+	--publish "80:8080/tcp" \
+	--network-alias="rootless-example.rootful0.podman.example.com"
+ExecStart=/usr/bin/podman start \
+	--attach \
+	rootless-example
+ExecStop=/usr/bin/podman stop \
+	--ignore -t 10 \
+	--cidfile=${RUNTIME_DIRECTORY}/ctr-id
+ExecStopPost=+/usr/local/sbin/rootful_network \
+	${RUNTIME_DIRECTORY} \
+	teardown
+ExecStopPost=/usr/bin/podman rm \
+	-f \
+	--ignore -t 10 \
+	--cidfile=${RUNTIME_DIRECTORY}/ctr-id
+Type=simple
+
+[Install]
+WantedBy=default.target
