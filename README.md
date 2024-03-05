@@ -104,7 +104,7 @@ rootful_network \
     "$name_used_to_generate_ip" \
     /etc/rootful_network_secret \
     "$unprivileged_user" \
-    "$networkname" \
+    --network "$networkname" \
     [--publish [[ip:][hostPort]:]containerPort[/protocol]] \
     [--network-alias "$alias"]
 ```
