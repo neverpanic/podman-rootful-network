@@ -36,7 +36,7 @@ ExecStartPre=+/usr/local/sbin/rootful_network \
 	%n \
 	"/etc/rootful_network_secret" \
 	${USER} \
-	"rootful0" \
+	--network "rootful0" \
 	--publish "80:8080/tcp" \
 	--network-alias="rootless-example.rootful0.podman.example.com"
 ExecStart=/usr/bin/podman start \

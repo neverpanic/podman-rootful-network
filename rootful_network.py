@@ -185,7 +185,10 @@ def parse_arguments():
         ),
     )
     setup_parser.add_argument(
-        "podman_network", help="Name of the podman network to attach to the container"
+        "-n", "--network",
+        dest="networks",
+        action='append',
+        help="Name of the podman network(s) to attach to the container",
     )
     setup_parser.add_argument(
         "--network-alias",
@@ -527,9 +530,6 @@ def setup(args, con):
     )
     target_uid = pwd.getpwnam(args.user).pw_uid
 
-    with podman.PodmanClient(base_url="unix:///run/podman/podman.sock") as root_podman:
-        network = root_podman.networks.get(args.podman_network)
-
     with podman.PodmanClient(
         base_url=f"unix:///run/user/{target_uid:d}/podman/podman.sock"
     ) as user_podman:
@@ -565,22 +565,27 @@ def setup(args, con):
         "container_id": container.id,
         "container_name": container.name,
         "port_mappings": portmappings(args.publish),
-        "networks": {
-            network.name: {
-                "static_ips": [],  # to be set later
-                "aliases": args.network_alias,
-                "interface_name": "eth0",
-            }
-        },
-        "network_info": {network.name: network.attrs},
+        "networks": {},
+        "network_info": {},
     }
 
-    # Do not release the allocated IPs when netavark failed; it might have done
-    # a partial setup. The only safe way to leave this state is to invoke
-    # teardown.
-    config["networks"][network.name]["static_ips"] = allocate_ips(
-        con, network.id, network.attrs["subnets"], mac, container.id
-    )
+    interface_increment = 0
+    for podman_network in args.networks:
+        with podman.PodmanClient(base_url="unix:///run/podman/podman.sock") as root_podman:
+            network = root_podman.networks.get(podman_network)
+        config["networks"][network.name]={
+                "static_ips": [],  # to be set later
+                "aliases": args.network_alias,
+                "interface_name": "eth" + str(interface_increment),
+            }
+        config["network_info"][network.name] = network.attrs
+        # Do not release the allocated IPs when netavark failed; it might have done
+        # a partial setup. The only safe way to leave this state is to invoke
+        # teardown.
+        config["networks"][network.name]["static_ips"] = allocate_ips(
+            con, network.id, network.attrs["subnets"], mac, container.id
+        )
+        interface_increment += 1
 
     print("netavark configuration successfully generated:")
     print(json.dumps(config, indent=2))
