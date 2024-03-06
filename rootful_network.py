@@ -523,11 +523,6 @@ def setup(args, con):
     """
     container_id = (args.runtime_dir / CONTAINER_ID_FILENAME).read_text().strip()
     netns = args.runtime_dir / NETNS_FILENAME
-    mac = hmac.digest(
-        args.mac_file.read_bytes(),
-        cleanup_name(args.systemd_service).encode("utf-8"),
-        "SHA3-512",
-    )
     target_uid = pwd.getpwnam(args.user).pw_uid
 
     with podman.PodmanClient(
@@ -579,6 +574,12 @@ def setup(args, con):
                 "interface_name": "eth" + str(interface_increment),
             }
         config["network_info"][network.name] = network.attrs
+
+        mac = hmac.digest(
+            args.mac_file.read_bytes(),
+            cleanup_name(args.systemd_service + network.name).encode("utf-8"),
+            "SHA3-512",
+        )
         # Do not release the allocated IPs when netavark failed; it might have done
         # a partial setup. The only safe way to leave this state is to invoke
         # teardown.
