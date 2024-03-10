@@ -185,9 +185,10 @@ def parse_arguments():
         ),
     )
     setup_parser.add_argument(
-        "-n", "--network",
+        "-n",
+        "--network",
         dest="networks",
-        action='append',
+        action="append",
         help="Name of the podman network(s) to attach to the container",
     )
     setup_parser.add_argument(
@@ -567,11 +568,11 @@ def setup(args, con):
     with podman.PodmanClient(base_url="unix:///run/podman/podman.sock") as root_podman:
         for interface_increment, podman_network in enumerate(args.networks):
             network = root_podman.networks.get(podman_network)
-            config["networks"][network.name]={
-                    "static_ips": [],  # to be set later
-                    "aliases": args.network_alias,
-                    "interface_name": "eth" + str(interface_increment),
-                }
+            config["networks"][network.name] = {
+                "static_ips": [],  # to be set later
+                "aliases": args.network_alias,
+                "interface_name": "eth" + str(interface_increment),
+            }
             config["network_info"][network.name] = network.attrs
 
             mac = hmac.digest(
