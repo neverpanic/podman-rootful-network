@@ -564,29 +564,27 @@ def setup(args, con):
         "network_info": {},
     }
 
-    interface_increment = 0
-    for podman_network in args.networks:
-        with podman.PodmanClient(base_url="unix:///run/podman/podman.sock") as root_podman:
+    with podman.PodmanClient(base_url="unix:///run/podman/podman.sock") as root_podman:
+        for interface_increment, podman_network in enumerate(args.networks):
             network = root_podman.networks.get(podman_network)
-        config["networks"][network.name]={
-                "static_ips": [],  # to be set later
-                "aliases": args.network_alias,
-                "interface_name": "eth" + str(interface_increment),
-            }
-        config["network_info"][network.name] = network.attrs
+            config["networks"][network.name]={
+                    "static_ips": [],  # to be set later
+                    "aliases": args.network_alias,
+                    "interface_name": "eth" + str(interface_increment),
+                }
+            config["network_info"][network.name] = network.attrs
 
-        mac = hmac.digest(
-            args.mac_file.read_bytes(),
-            cleanup_name(args.systemd_service + network.name).encode("utf-8"),
-            "SHA3-512",
-        )
-        # Do not release the allocated IPs when netavark failed; it might have done
-        # a partial setup. The only safe way to leave this state is to invoke
-        # teardown.
-        config["networks"][network.name]["static_ips"] = allocate_ips(
-            con, network.id, network.attrs["subnets"], mac, container.id
-        )
-        interface_increment += 1
+            mac = hmac.digest(
+                args.mac_file.read_bytes(),
+                cleanup_name(args.systemd_service + network.name).encode("utf-8"),
+                "SHA3-512",
+            )
+            # Do not release the allocated IPs when netavark failed; it might have done
+            # a partial setup. The only safe way to leave this state is to invoke
+            # teardown.
+            config["networks"][network.name]["static_ips"] = allocate_ips(
+                con, network.id, network.attrs["subnets"], mac, container.id
+            )
 
     print("netavark configuration successfully generated:")
     print(json.dumps(config, indent=2))
