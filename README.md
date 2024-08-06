@@ -18,7 +18,9 @@ If you are using podman >= 4.5, using
 ```sh
 podman run \
     --uidmap="0:$(id -u user):1" \
-    --uidmap="1:$(grep -Po '(?<=^user:).*$' /etc/subuid | head -1)"
+    --uidmap="1:$(grep -Po '(?<=^user:).*$' /etc/subuid | head -1)" \
+    --gidmap="0:$(id -g user):1" \
+    --gidmap="1:$(grep -Po '(?<=^user:).*$' /etc/subgid | head -1")
 ```
 
 also gives you containers without a mapped root UID without external tooling.
